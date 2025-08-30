@@ -8,18 +8,7 @@ class Form13FParser(BaseParser):
     def __init__(self, client):
         self.client = client #* EdgarClient instance
 
-    def extract_data(self, accession_number: str):
-        acc_stripped = accession_number.replace("-", "")
-        # get index, find infotable, parse
-        idx = self.edgar.get_index(acc_stripped)
-        infotable_name = next((i['name'] for i in idx['directory']['item'] if 'infotable' in i['name']), None)
-        if not infotable_name:
-            return []
-        xml = self.edgar.fetch_file(acc_stripped, infotable_name)
-        return self.parsers['13f'].parse_infotable(xml, accession_number)
-
-
-    def parse(self, acc_stripped) -> List[Dict]:
+    def parse_primary_doc(self, acc_stripped) -> List[Dict]:
         """
         For Form 13F XML file for one accession number. Parse <infoTable> entries, one per holding.
 
@@ -27,7 +16,7 @@ class Form13FParser(BaseParser):
         acc_number: current accession number to get info for
         url: optional, url of resource for XML file
         """
-        # For 13F forms: find infotable file name
+        # For 13F forms: find infotable xml file name
         index_json = self.client.get_index_json(acc_stripped)
         info_file = next((i["name"] for i in index_json["directory"]["item"] if "infotable" in i["name"]), None)
         if not info_file:

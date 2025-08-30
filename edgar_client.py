@@ -3,9 +3,14 @@ import requests
 import json
 from typing import Tuple, Dict
 
+def _strip_acc(acc_number: str) -> str:
+        """Strip dashes from accession number"""
+        return acc_number.replace('-', '')
+
 class EdgarClient:
-    def __init__(self, cik_full: str, cik_stripped: str, user_agent: str):
+    def __init__(self, cik_full: str, user_agent: str):
         self.submissions_url = f"https://data.sec.gov/submissions/{cik_full}.json"
+        cik_stripped = cik_full.replace("CIK", "").lstrip("0")
         self.filing_baseurl = f"https://www.sec.gov/Archives/edgar/data/{cik_stripped}"
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": user_agent})
@@ -16,15 +21,15 @@ class EdgarClient:
         r.raise_for_status()
         return r.json()
 
-    def get_index_json(self, acc_stripped: str) -> Dict:
+    def get_index_json(self, acc: str) -> Dict:
         """Get index.json for one accession number"""
-        r = self.session.get(f"{self.filing_baseurl}/{acc_stripped}/index.json")
+        r = self.session.get(f"{self.filing_baseurl}/{_strip_acc(acc)}/index.json")
         r.raise_for_status()
         return r.json()
 
-    def get_primary_doc_name(self, acc_stripped: str) -> str:
+    def get_primary_doc_name(self, acc: str) -> str:
         """Get primary doc file name. Usually "infotable" for 13f, variable for 13g"""
-        items = self.get_index_json(acc_stripped)['directory']['item']
+        items = self.get_index_json(_strip_acc(acc))['directory']['item']
         candidates = [f for f in items if f["name"].endswith((".htm", ".html"))] # prefer htm
         if not candidates:
             candidates = [f for f in items if f["name"].endswith(".txt")]
@@ -43,11 +48,13 @@ class EdgarClient:
         return all_text
         
 
-    def fetch_file(self, acc_stripped: str, filename: str) -> bytes:
+    def fetch_file(self, acc: str, filename: str) -> bytes:
         """Form url and fetch the file for an accession number
         returns: (file content bytes)"""
 
-        url = f"{self.filing_baseurl}/{acc_stripped}/{filename}"
+        url = f"{self.filing_baseurl}/{_strip_acc(acc)}/{filename}"
         r = self.session.get(url)
         r.raise_for_status()
         return r.content
+    
+    
