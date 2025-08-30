@@ -3,9 +3,9 @@ import requests
 import json
 from typing import Tuple, Dict
 
-def _strip_acc(acc_number: str) -> str:
-        """Strip dashes from accession number"""
-        return acc_number.replace('-', '')
+# def _strip_acc(acc_number: str) -> str:
+#         """Strip dashes from accession number"""
+#         return acc_number.replace('-', '')
 
 class EdgarClient:
     def __init__(self, cik_full: str, user_agent: str):
@@ -15,6 +15,8 @@ class EdgarClient:
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": user_agent})
 
+        
+
     def get_submissions_feed(self) -> Dict:
         """Get the overall EDGAR submissions json feed"""
         r = self.session.get(self.submissions_url)
@@ -23,13 +25,13 @@ class EdgarClient:
 
     def get_index_json(self, acc: str) -> Dict:
         """Get index.json for one accession number"""
-        r = self.session.get(f"{self.filing_baseurl}/{_strip_acc(acc)}/index.json")
+        r = self.session.get(f"{self.filing_baseurl}/{acc}/index.json")
         r.raise_for_status()
         return r.json()
 
     def get_primary_doc_name(self, acc: str) -> str:
         """Get primary doc file name. Usually "infotable" for 13f, variable for 13g"""
-        items = self.get_index_json(_strip_acc(acc))['directory']['item']
+        items = self.get_index_json(acc)['directory']['item']
         candidates = [f for f in items if f["name"].endswith((".htm", ".html"))] # prefer htm
         if not candidates:
             candidates = [f for f in items if f["name"].endswith(".txt")]
@@ -52,7 +54,7 @@ class EdgarClient:
         """Form url and fetch the file for an accession number
         returns: (file content bytes)"""
 
-        url = f"{self.filing_baseurl}/{_strip_acc(acc)}/{filename}"
+        url = f"{self.filing_baseurl}/{acc}/{filename}"
         r = self.session.get(url)
         r.raise_for_status()
         return r.content

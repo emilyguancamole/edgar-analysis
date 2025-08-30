@@ -5,7 +5,6 @@ import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "9"
 
 
 CIK_FULL = "CIK0000763212"

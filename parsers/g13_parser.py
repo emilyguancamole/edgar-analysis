@@ -1,8 +1,11 @@
 
+from typing import Dict, List, Optional
 from bs4 import BeautifulSoup
 import json
+
+from models import FormGEntry
 from .base_parser import BaseParser
-from llm_client import LLMClient
+from llm.llm_client import LLMClient
 from edgar_client import EdgarClient
 
 class Form13GParser(BaseParser):
@@ -18,10 +21,38 @@ class Form13GParser(BaseParser):
 
         # Get the primary doc content
         html_content = self.client.fetch_file(acc_stripped, primary_doc_name)
-
         soup = BeautifulSoup(html_content, "lxml")
         text = soup.get_text(" ", strip=True)
         
-        response = self.llm.extract(text)
-        return json.loads(response)
+        try:
+            # LLM extraction and validation using the pydantic model
+            file_data: List[Dict] = self.llm.extract_and_validate(text, entry_model=FormGEntry, max_retries=1)
+
+        except Exception as e:
+            print(f"LLM extraction/validation failed for accession {acc_stripped}: {e}")
+            return {}
+
+        # Add accession_number, return as a filing-level dict
+        filing = {
+            "accession_number": acc_stripped,
+            "primary_doc": primary_doc_name,
+            "holdings": file_data
+        }
+        return filing
+    
+    def parse_all(self, acc_numbers: List[str], limit: Optional[int] = None) -> List[dict]:
+        to_process = acc_numbers[:limit] if limit is not None else acc_numbers
+        to_process = [a.replace('-', '') for a in to_process]
+
+        data = [] # list of dicts, one per accession
+        for acc in to_process:
+            try:
+                entry = self.parse_primary_doc(acc)
+                if entry:
+                    data.append(entry)
+            except Exception as e:
+                print(f"Error processing {acc}: {e}")
+
+        return data
+    
     

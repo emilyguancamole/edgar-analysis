@@ -8,14 +8,13 @@ class FormGEntry(BaseModel):
     report_date: str
     issuer: str
     name_person_filing: str
-    class_: str  # 'class' is a reserved keyword
     cusip: str
     shares_owned: int
-    percent_of_class: str
-    voting_sole: str
-    voting_shared: str
-    shares_dispo_sole: str
-    shares_dispo_shared: str
+    percent_of_class: float
+    voting_sole: int
+    voting_shared: int
+    shares_dispo_sole: int
+    shares_dispo_shared: int
 
     @field_validator('report_date')
     @classmethod # methods that are bound to the class and not the instance of the class. They can access class variables and other class methods.

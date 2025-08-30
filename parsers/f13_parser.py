@@ -1,7 +1,7 @@
+from itertools import chain
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Optional
-from model import FormGEntry
-import json
+from models import FormGEntry
 from .base_parser import BaseParser
 
 class Form13FParser(BaseParser):
@@ -50,3 +50,25 @@ class Form13FParser(BaseParser):
                 "url": f"{self.client.filing_baseurl}/{acc_stripped.replace('-', '')}/{info_file}",
             })
         return rows
+    
+    def parse_all(self, acc_numbers: List[str], limit: Optional[int] = None) -> List[Dict]:
+        """Parse multiple accession numbers and return a flat list of dict rows.
+        - acc_numbers: list of accession number strings
+        - limit: optional max number of accessions to process
+
+        Returns:
+        - List[Dict]: flattened list where each dict is one infoTable row.
+        """
+        to_process = acc_numbers[:limit] if limit is not None else acc_numbers
+        to_process = [a.replace('-', '') for a in to_process] # strip dashes
+        per_file_rows: List[List[dict]] = [] # list of lists of dicts. each sublist=rows of holding dicts for one accession number
+        for acc in to_process:
+            try:
+                file_rows = self.parse_primary_doc(acc)
+                if file_rows:
+                    per_file_rows.append(file_rows)
+            except Exception as e:
+                print(f"error parsing {acc}: {e}")
+        # Flatten into single list-of-dicts
+        return list(chain.from_iterable(per_file_rows))
+    
