@@ -1,2 +1,3 @@
-accession_number,primary_doc,holdings
-000108514624005552,aala10_111224.htm,"{'report_date': '11/12/2024', 'issuer': 'American Airlines Group Inc.', 'name_person_filing': 'PRIMECAP Management Company', 'cusip': '02376R102', 'shares_owned': 57339666, 'percent_of_class': 8.77, 'voting_sole': 55507321, 'voting_shared': 0, 'shares_dispo_sole': 57339666, 'shares_dispo_shared': 0}"
+accession_number,primary_doc,report_date,issuer,name_filer,irs_id_filer,cusip,shares_owned,percent_of_class,voting_sole,voting_shared,shares_dispo_sole,shares_dispo_shared
+000108514624005552,aala10_111224.htm,09/30/2024,American Airlines Group Inc.,PRIMECAP Management Company,95-3868081,02376R102,57339666,8.77,55507321,0,57339666,0
+000108514624005545,nxt_111124.htm,09/30/2024,NEXTRACKER INC.,PRIMECAP Management Company,95-3868081,65290E101,7844407,5.47,7475943,0,7844407,0

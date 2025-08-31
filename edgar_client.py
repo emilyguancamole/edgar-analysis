@@ -29,8 +29,8 @@ class EdgarClient:
         r.raise_for_status()
         return r.json()
 
-    def get_primary_doc_name(self, acc: str) -> str:
-        """Get primary doc file name. Usually "infotable" for 13f, variable for 13g"""
+    def get_primary_doc_name_date(self, acc: str) -> str:
+        """Get primary doc file name and last modified date. Usually "infotable" for 13f, variable for 13g"""
         items = self.get_index_json(acc)['directory']['item']
         candidates = [f for f in items if f["name"].endswith((".htm", ".html"))] # prefer htm
         if not candidates:
@@ -38,7 +38,8 @@ class EdgarClient:
         # Assuming largest is the primary. missing sizes = small
         candidates.sort(key=lambda x: x.get("size", 0))
         primary_doc_name = candidates[-1]["name"]
-        return primary_doc_name
+        report_date = candidates[-1].get("last-modified", "").split(" ")[0]  # just the date part, no time
+        return primary_doc_name, report_date
     
     def extract_text_from_primary_doc(content_bytes: bytes) -> str:
         """Extract text from primary doc. For Form 13g, usually html or txt

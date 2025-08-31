@@ -15,7 +15,7 @@ class Form13GParser(BaseParser):
 
     def parse_primary_doc(self, acc_stripped: str) -> dict:
         # Find name of primary filing document
-        primary_doc_name = self.client.get_primary_doc_name(acc_stripped)
+        primary_doc_name = self.client.get_primary_doc_name_date(acc_stripped)[0]
         if not primary_doc_name:
             return {}
 
@@ -26,7 +26,7 @@ class Form13GParser(BaseParser):
         
         try:
             # LLM extraction and validation using the pydantic model
-            file_data: List[Dict] = self.llm.extract_and_validate(text, entry_model=FormGEntry, max_retries=1)
+            file_data: dict = self.llm.extract_and_validate(text, entry_model=FormGEntry, max_retries=1)
 
         except Exception as e:
             print(f"LLM extraction/validation failed for accession {acc_stripped}: {e}")
@@ -34,10 +34,9 @@ class Form13GParser(BaseParser):
 
         # Add accession_number, return as a filing-level dict
         filing = {
-            "accession_number": acc_stripped,
-            "primary_doc": primary_doc_name,
-            "holdings": file_data
-        }
+            "accession_number": acc_stripped, 
+            "primary_doc": primary_doc_name, 
+            **file_data}
         return filing
     
     def parse_all(self, acc_numbers: List[str], limit: Optional[int] = None) -> List[dict]:

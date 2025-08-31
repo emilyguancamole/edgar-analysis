@@ -18,6 +18,7 @@ class Form13FParser(BaseParser):
         """
         # For 13F forms: find infotable xml file name
         index_json = self.client.get_index_json(acc_stripped)
+        report_date = self.client.get_primary_doc_name_date(acc_stripped)[1]
         info_file = next((i["name"] for i in index_json["directory"]["item"] if "infotable" in i["name"]), None)
         if not info_file:
             print("Info table not found")
@@ -35,12 +36,12 @@ class Form13FParser(BaseParser):
         for info in infotables:
             rows.append({
                 "accession_number": acc_stripped,
-                "report_date": root.findtext("ns1:periodOfReport", namespaces=ns),
+                "report_date": report_date,
                 "issuer": info.findtext("ns1:nameOfIssuer", namespaces=ns), #* findtext: Find text for first matching element by tag name or path
                 "class": info.findtext("ns1:titleOfClass", namespaces=ns),
                 "cusip": info.findtext("ns1:cusip", namespaces=ns),
                 "figi": info.findtext("ns1:figi", namespaces=ns),
-                "value": int(info.findtext("ns1:value", default=-1, namespaces=ns)),
+                "value_dollar": int(info.findtext("ns1:value", default=-1, namespaces=ns)),
                 "shares_owned": int(info.findtext("ns1:shrsOrPrnAmt/ns1:sshPrnamt", default=-1, namespaces=ns)), # shares or principal amount
                 "share_type": info.findtext("ns1:shrsOrPrnAmt/ns1:sshPrnamtType", namespaces=ns),
                 "discretion": info.findtext("ns1:investmentDiscretion", namespaces=ns),

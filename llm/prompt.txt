@@ -2,9 +2,10 @@ You are an accurate data analyst.
 I will give you a SEC 13G/A filing. Carefully extract the following fields from the given filing. If any data is not available in the filing, record "NA". Return valid JSON with the fields as the keys. Only return the JSON output.
 
 Fields and definitions:
-report_date: record in "mm/dd/yyyy" format
+report_date: record in "yyyy/mm/dd" format
 issuer
-name_person_filing: name of person filing
+name_filer: name of person filing
+irs_id_filer: IRS id number of the person filing
 class
 cusip
 shares_owned: aggregate amount owned
