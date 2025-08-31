@@ -1,0 +1,8 @@
+pandas
+pydantic
+requests
+beautifulsoup4
+sqlalchemy
+psycopg2
+transformers
+torch
