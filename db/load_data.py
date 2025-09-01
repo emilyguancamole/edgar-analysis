@@ -10,6 +10,16 @@ def _count(cur, table):
     return cur.fetchone()[0]
 
 ### Load data
+def load_funds(conn):
+    #! only a few funds, so hardcode for now
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO funds (fund_name, cik)
+            VALUES
+                ('PRIMECAP Management CO/CA', 'CIK0000763212')
+            ON CONFLICT (cik) DO NOTHING;
+        """)
+        
 def load_13f_csv_to_staging(csv_path, staging_table, conn):
     with conn.cursor() as cur:
         # _show_db_info(conn, cur)
@@ -20,6 +30,7 @@ def load_13f_csv_to_staging(csv_path, staging_table, conn):
                 CREATE TABLE {staging_table} (
                     accession_number TEXT,
                     report_date DATE,
+                    cik TEXT,
                     issuer TEXT,
                     class TEXT,
                     cusip TEXT,
@@ -54,12 +65,11 @@ def load_13g_csv_to_staging(csv_path, staging_table, conn):
         try:
             # drop/create staging for each run
             cur.execute(f"DROP TABLE IF EXISTS {staging_table};")
-            # todo how to connect to fund / identify name of filer w/ an id/cik
             cur.execute(f"""
                 CREATE TABLE {staging_table} (
                     accession_number TEXT,
-                    primary_doc TEXT,
                     cik TEXT,
+                    primary_doc TEXT,
                     name_filer TEXT,
                     report_date DATE,
                     issuer TEXT,
@@ -86,10 +96,8 @@ def load_13g_csv_to_staging(csv_path, staging_table, conn):
             raise
 
 
-
 def merge_13f_staging_to_schema(staging_table, conn):
     with conn.cursor() as cur:
-        _show_db_info(conn, cur)
         # Insert issuers, dedup on cusip
         cur.execute(f"""
             INSERT INTO issuers (issuer_name, cusip, figi)
@@ -100,11 +108,18 @@ def merge_13f_staging_to_schema(staging_table, conn):
         conn.commit()
         print("issuers rows:", _count(cur, "issuers"))
 
-        # Insert filings
+        # Insert filings with fund_id fk
         cur.execute(f"""
-            INSERT INTO filings (accession_number, report_date, cik,filing_type, primary_doc_url)
-            SELECT DISTINCT accession_number, report_date, '13F', primary_doc_url
-            FROM {staging_table}
+            INSERT INTO filings (accession_number, report_date, filing_type, primary_doc_url, fund_id)
+            SELECT DISTINCT
+                s.accession_number,
+                s.report_date,
+                '13F',
+                s.primary_doc_url,
+                f.cik
+            FROM {staging_table} s
+            LEFT JOIN funds f
+                ON f.cik = s.cik
             ON CONFLICT (accession_number) DO NOTHING;
         """)
         conn.commit()
@@ -120,7 +135,8 @@ def merge_13f_staging_to_schema(staging_table, conn):
                    s.discretion, s.voting_sole, s.voting_shared, s.voting_none
             FROM {staging_table} s
             JOIN filings f ON f.accession_number = s.accession_number
-            JOIN issuers i ON i.cusip = s.cusip;
+            JOIN issuers i ON i.cusip = s.cusip
+            ON CONFLICT (filing_id, issuer_id, share_type) DO NOTHING;
         """)
         conn.commit()
         print("holdings_raw rows:", _count(cur, "holdings_raw"))
@@ -140,11 +156,18 @@ def merge_13g_staging_to_schema(staging_table, conn):
         print("issuers rows:", _count(cur, "issuers"))
 
 
-        # Insert filings
+        # Insert filings with fund_id fk
         cur.execute(f"""
-            INSERT INTO filings (accession_number, report_date, filing_type, primary_doc_url)
-            SELECT DISTINCT accession_number, cik, report_date, '13G', primary_doc
-            FROM {staging_table}
+            INSERT INTO filings (accession_number, report_date, filing_type, primary_doc_url, fund_id)
+            SELECT DISTINCT
+                s.accession_number,
+                s.report_date,
+                '13G',
+                s.primary_doc,
+                f.cik
+            FROM {staging_table} s
+            LEFT JOIN funds f
+                ON f.cik = s.cik
             ON CONFLICT (accession_number) DO NOTHING;
         """)
         conn.commit()
@@ -158,29 +181,27 @@ def merge_13g_staging_to_schema(staging_table, conn):
             SELECT f.filing_id, i.issuer_id, s.shares_owned,s.percent_of_class,s.voting_sole,s.voting_shared,s.shares_dispo_sole,s.shares_dispo_shared
             FROM {staging_table} s
             JOIN filings f ON f.accession_number = s.accession_number
-            JOIN issuers i ON i.cusip = s.cusip;
+            JOIN issuers i ON i.cusip = s.cusip
+            ON CONFLICT (filing_id, issuer_id, share_type) DO NOTHING;
         """)
         conn.commit()
         print("holdings_raw rows:", _count(cur, "holdings_raw"))
 
 
-def load_funds(conn):
-    #! only a few funds, so hardcode for now
-    with conn.cursor() as cur:
-        cur.execute("""
-            INSERT INTO funds (fund_name, cik)
-            VALUES
-                ('PRIMECAP Management CO/CA', 0000763212)
-            ON CONFLICT (cik) DO NOTHING;
-        """)
+def load_holdings_ts(conn):
+    pass
+
+def load_prices(conn):
+    """also timeseries"""
+    pass
 
 if __name__ == "__main__":
     conn = get_conn()
+    load_funds(conn)
     load_13f_csv_to_staging("./data/extracted_13f.csv", "staging_13f", conn)
     merge_13f_staging_to_schema("staging_13f", conn)
     load_13g_csv_to_staging("./data/extracted_13g.csv", "staging_13g", conn)
     merge_13g_staging_to_schema("staging_13g", conn)
-    load_funds(conn)
     print("Data loaded successfully.")
     conn.commit()
     conn.close()

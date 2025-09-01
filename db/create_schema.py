@@ -2,6 +2,8 @@ import pandas as pd
 from connect_db import get_conn
 
 def create_tables(conn):
+    """ Deletes existing and creates tables """
+
     cur = conn.cursor()
 
     # drop tables in dependency order; CASCADE removes dependent objects
@@ -25,9 +27,8 @@ def create_tables(conn):
 
     cur.execute("""
         CREATE TABLE funds (
-            fund_id SERIAL PRIMARY KEY,
-            fund_name TEXT NOT NULL,
-            cik NUMERIC UNIQUE
+            cik TEXT PRIMARY KEY,
+            fund_name TEXT NOT NULL
         );"""
     )
 
@@ -35,7 +36,7 @@ def create_tables(conn):
         CREATE TABLE filings (
             filing_id SERIAL PRIMARY KEY,
             accession_number TEXT UNIQUE NOT NULL,
-            fund_id INT REFERENCES funds(fund_id),
+            fund_id TEXT REFERENCES funds(cik),
             filing_type TEXT CHECK (filing_type IN ('13F', '13G', '13G/A')),
             report_date DATE NOT NULL,
             primary_doc_url TEXT
@@ -56,13 +57,14 @@ def create_tables(conn):
             voting_none BIGINT,
             percent_of_class NUMERIC,
             shares_dispo_sole BIGINT,
-            shares_dispo_shared BIGINT
+            shares_dispo_shared BIGINT,
+            UNIQUE(filing_id, issuer_id, share_type)
         );"""
     )
 
     cur.execute("""
         CREATE TABLE holdings_ts (
-            fund_id INT REFERENCES funds(fund_id),
+            fund_id TEXT REFERENCES funds(cik),
             issuer_id INT REFERENCES issuers(issuer_id),
             date DATE NOT NULL,
             shares_owned BIGINT,
