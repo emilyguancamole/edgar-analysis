@@ -15,7 +15,6 @@ class EdgarClient:
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": user_agent})
 
-        
 
     def get_submissions_feed(self) -> Dict:
         """Get the overall EDGAR submissions json feed"""

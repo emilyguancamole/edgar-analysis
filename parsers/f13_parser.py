@@ -1,7 +1,6 @@
 from itertools import chain
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Optional
-from models import FormGEntry
 from .base_parser import BaseParser
 
 class Form13FParser(BaseParser):
@@ -11,10 +10,6 @@ class Form13FParser(BaseParser):
     def parse_primary_doc(self, acc_stripped) -> List[Dict]:
         """
         For Form 13F XML file for one accession number. Parse <infoTable> entries, one per holding.
-
-        xml_bytes: response.content from get() request for the primary doc file
-        acc_number: current accession number to get info for
-        url: optional, url of resource for XML file
         """
         # For 13F forms: find infotable xml file name
         index_json = self.client.get_index_json(acc_stripped)
@@ -48,7 +43,7 @@ class Form13FParser(BaseParser):
                 "voting_sole": info.findtext("ns1:votingAuthority/ns1:Sole", namespaces=ns),
                 "voting_shared": info.findtext("ns1:votingAuthority/ns1:Shared", namespaces=ns),
                 "voting_none": info.findtext("ns1:votingAuthority/ns1:None", namespaces=ns),
-                "url": f"{self.client.filing_baseurl}/{acc_stripped.replace('-', '')}/{info_file}",
+                "primary_doc_url": f"{self.client.filing_baseurl}/{acc_stripped.replace('-', '')}/{info_file}",
             })
         return rows
     

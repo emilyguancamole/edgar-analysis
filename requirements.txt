@@ -2,7 +2,8 @@ pandas
 pydantic
 requests
 beautifulsoup4
-sqlalchemy
-psycopg2
+"psycopg[binary]"
+"psycopg[pool]"
 transformers
 torch
+dotenv

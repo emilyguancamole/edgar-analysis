@@ -1,4 +1,4 @@
-accession_number,report_date,issuer,class,cusip,figi,value_dollar,shares_owned,share_type,discretion,voting_sole,voting_shared,voting_none,url
+accession_number,report_date,cik,issuer,class,cusip,figi,value_dollar,shares_owned,share_type,discretion,voting_sole,voting_shared,voting_none,primary_doc_url
 000108514625004804,2025-08-11,ABBOTT LABS,COM,002824100,BBG001S5N9M6,119075397,875490,SH,SOLE,836220,0,39270,https://www.sec.gov/Archives/edgar/data/763212/000108514625004804/infotable.xml
 000108514625004804,2025-08-11,ACCURAY INC,COM,004397105,BBG001SFHKJ0,46169,33700,SH,SOLE,33700,0,0,https://www.sec.gov/Archives/edgar/data/763212/000108514625004804/infotable.xml
 000108514625004804,2025-08-11,ADOBE INC,COM,00724F101,BBG001S5NCQ5,1608467527,4157536,SH,SOLE,4056927,0,100609,https://www.sec.gov/Archives/edgar/data/763212/000108514625004804/infotable.xml
