@@ -35,6 +35,7 @@ class Form13GParser(BaseParser):
         # Add accession_number, return as a filing-level dict
         filing = {
             "accession_number": acc_stripped, 
+            "cik": self.client.cik,
             "primary_doc": primary_doc_name, 
             **file_data}
         return filing

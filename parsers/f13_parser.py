@@ -32,6 +32,7 @@ class Form13FParser(BaseParser):
             rows.append({
                 "accession_number": acc_stripped,
                 "report_date": report_date,
+                "cik": self.client.cik,
                 "issuer": info.findtext("ns1:nameOfIssuer", namespaces=ns), #* findtext: Find text for first matching element by tag name or path
                 "class": info.findtext("ns1:titleOfClass", namespaces=ns),
                 "cusip": info.findtext("ns1:cusip", namespaces=ns),

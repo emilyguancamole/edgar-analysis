@@ -10,6 +10,7 @@ from typing import Tuple, Dict
 class EdgarClient:
     def __init__(self, cik_full: str, user_agent: str):
         self.submissions_url = f"https://data.sec.gov/submissions/{cik_full}.json"
+        self.cik = cik_full
         cik_stripped = cik_full.replace("CIK", "").lstrip("0")
         self.filing_baseurl = f"https://www.sec.gov/Archives/edgar/data/{cik_stripped}"
         self.session = requests.Session()

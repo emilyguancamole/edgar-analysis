@@ -5,10 +5,9 @@ from datetime import datetime
 
 class FormGEntry(BaseModel):
     # accession_number: str # added manually
+    name_filer: str
     report_date: str
     issuer: str
-    name_filer: str
-    irs_id_filer: str
     cusip: str #todo Cross-check CUSIPs against security master (e.g., OpenFIGI, Refinitiv, Bloomberg)
     shares_owned: int
     percent_of_class: float

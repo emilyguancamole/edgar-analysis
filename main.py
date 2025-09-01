@@ -32,10 +32,10 @@ if __name__ == "__main__":
         print("Processing 13F filings...")
         f13_parser = Form13FParser(client)
         f13_data: List[dict] = f13_parser.parse_all(accessions_13f, limit=args.limit)
-        save_to_csv(f13_data, "extracted_13f.csv")
+        save_to_csv(f13_data, "data/extracted_13f.csv")
     if args.form_type == "13g" or args.form_type == "all":
         print("Processing 13G filings...")
         llm = LLMClient(MODEL_NAME)
         g13_parser = Form13GParser(client, llm)
         g13_data: List[dict] = g13_parser.parse_all(accessions_13g, limit=args.limit)
-        save_to_csv(g13_data, "extracted_13g.csv")
+        save_to_csv(g13_data, "data/extracted_13g.csv")
