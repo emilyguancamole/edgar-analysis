@@ -1,3 +1,4 @@
+import datetime
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from typing import List, Dict, Optional, Type
 import os
@@ -7,13 +8,15 @@ from pydantic import ValidationError
 from models import FormGEntry
 
 class LLMClient:
-    def __init__(self, model_name):
+    def __init__(self, model_name, debug=False, debug_log_path="llm_debug.log"):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
             torch_dtype="auto",
             device_map="auto"
         )
+        self.debug = debug
+        self.debug_log_path = debug_log_path
 
     def build_messages(self, filing_text):
         # prepare the model input
@@ -30,7 +33,6 @@ class LLMClient:
     
     def extract_data_llm(self, file_text) -> str:
         messages = self.build_messages(file_text)
-        print("MESSAGES", messages)
         text = self.tokenizer.apply_chat_template(
             messages,
             tokenize=False,
@@ -55,9 +57,20 @@ class LLMClient:
 
         thinking_content = self.tokenizer.decode(output_ids[:index], skip_special_tokens=True).strip("\n")
         llm_response = self.tokenizer.decode(output_ids[index:], skip_special_tokens=True).strip("\n")
-
-        # print("thinking content:", thinking_content) #! debug
-        print("content:", llm_response)
+        if self.debug:
+            try:
+                with open(self.debug_log_path, "a", encoding="utf-8") as fh:
+                    fh.write(f"=== {datetime.utcnow().isoformat()} UTC ===\n")
+                    fh.write("PROMPT (tokenized input):\n")
+                    fh.write(text + "\n\n")
+                    fh.write("THINKING_CONTENT:\n")
+                    fh.write(thinking_content + "\n\n")
+                    fh.write("LLM_RAW_RESPONSE:\n")
+                    fh.write(llm_response + "\n\n")
+                    fh.write("---\n\n")
+            except Exception:
+                # keep behavior non-failing if logging fails
+                pass
         return llm_response
 
     def extract_and_validate(self, file_text, entry_model: FormGEntry, max_retries = 1) -> dict:
@@ -73,8 +86,6 @@ class LLMClient:
             attempt += 1
             try:
                 data = self.extract_data_llm(file_text) # get extraction for one file
-                print("LLM raw output:", data)
-                print()
                 data_json = json.loads(data)
                 # If model returned a JSON string (double-encoded), try decode again
                 if isinstance(data_json, str):
@@ -90,8 +101,17 @@ class LLMClient:
                     raise ValueError(f"type coercion error: {e}")
                 
                 validated = entry_model(**data_json) # validate filing data with pydantic mode. returns a model instance
-                print()
-                print("Validated entries:", validated)
+                if self.debug:
+                    try:
+                        with open(self.debug_log_path, "a", encoding="utf-8") as fh:
+                            fh.write(f"=== {datetime.utcnow().isoformat()} UTC VALIDATION ===\n")
+                            fh.write("PARSED_JSON:\n")
+                            fh.write(json.dumps(data_json, ensure_ascii=False, indent=2) + "\n\n")
+                            fh.write("VALIDATED ENTRIES:\n")
+                            fh.write(validated.json(ensure_ascii=False, indent=2) + "\n\n")
+                            fh.write("=== END ===\n\n")
+                    except Exception:
+                        pass
                 return validated.dict()
 
             except (json.JSONDecodeError, ValidationError, ValueError) as e:

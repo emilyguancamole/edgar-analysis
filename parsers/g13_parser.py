@@ -1,7 +1,8 @@
 
 from typing import Dict, List, Optional
 from bs4 import BeautifulSoup
-import json
+import logging
+
 
 from models import FormGEntry
 from .base_parser import BaseParser
@@ -12,6 +13,7 @@ class Form13GParser(BaseParser):
     def __init__(self, client: EdgarClient, llm: LLMClient):
         self.client = client
         self.llm = llm
+        self.logger = logging.getLogger(__name__)
 
     def parse_primary_doc(self, acc_stripped: str) -> dict:
         # Find name of primary filing document
@@ -43,15 +45,21 @@ class Form13GParser(BaseParser):
     def parse_all(self, acc_numbers: List[str], limit: Optional[int] = None) -> List[dict]:
         to_process = acc_numbers[:limit] if limit is not None else acc_numbers
         to_process = [a.replace('-', '') for a in to_process]
+        total = len(to_process)
+        print(f"Processing {total} Form 13G filings...")
 
         data = [] # list of dicts, one per accession
-        for acc in to_process:
+        for idx, acc in enumerate(to_process, start=1):
+            print(f"[{idx}/{total}] Processing accession {acc}...")
             try:
                 entry = self.parse_primary_doc(acc)
                 if entry:
                     data.append(entry)
+                    print(f"[{idx}/{total}] Success — collected {len(data)} filings so far.")
+                else:
+                    print(f"[{idx}/{total}] No data extracted for {acc}.")
             except Exception as e:
-                print(f"Error processing {acc}: {e}")
+                print(f"[{idx}/{total}] Error processing {acc}: {e}")
 
         return data
     
