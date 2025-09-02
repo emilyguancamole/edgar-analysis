@@ -1,3 +1,4 @@
+import pandas as pd
 from connect_db import get_conn
 
 def _show_db_info(conn, cur):
@@ -188,20 +189,42 @@ def merge_13g_staging_to_schema(staging_table, conn):
         print("holdings_raw rows:", _count(cur, "holdings_raw"))
 
 
-def load_holdings_ts(conn):
-    pass
+def build_holdings_ts(conn):
+    q = """
+        SELECT f.fund_id, h.issuer_id, f.report_date, h.shares_owned
+        FROM holdings_raw h
+        JOIN filings f ON h.filing_id = f.filing_id
+        ORDER BY f.fund_id, h.issuer_id, f.report_date;
+    """
+    df = pd.read_sql(q, conn)
+    # compute changes
+    df["shares_change"] = df.groupby(["fund_id", "issuer_id"])["shares_owned"].diff() # compares difference of each element in the group w/ prev
+    df["shares_change_pct"] = df.groupby(["fund_id", "issuer_id"])["shares_owned"].pct_change() * 100 # pct_change of each val to prev in the group
+    df = df.fillna({'shares_change': 0, 'shares_change_pct': 0})
+    rows = df[["fund_id", "issuer_id", "report_date", "shares_owned", "shares_change", "shares_change_pct"]].values.tolist()
 
-def load_prices(conn):
+    with conn.cursor() as cur:
+        cur.executemany("""
+            INSERT INTO holdings_ts (fund_id, issuer_id, date, shares_owned, shares_change, shares_change_pct)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (fund_id, issuer_id, date) DO NOTHING;
+            """, rows)
+        
+    conn.commit()
+    print("Inserted data for holdings_ts")
+
+
+def build_prices(conn):
     """also timeseries"""
     pass
 
 if __name__ == "__main__":
     conn = get_conn()
-    load_funds(conn)
-    load_13f_csv_to_staging("./data/extracted_13f.csv", "staging_13f", conn)
-    merge_13f_staging_to_schema("staging_13f", conn)
-    load_13g_csv_to_staging("./data/extracted_13g.csv", "staging_13g", conn)
-    merge_13g_staging_to_schema("staging_13g", conn)
-    print("Data loaded successfully.")
+    # load_funds(conn)
+    # load_13f_csv_to_staging("./data/extracted_13f.csv", "staging_13f", conn)
+    # merge_13f_staging_to_schema("staging_13f", conn)
+    # load_13g_csv_to_staging("./data/extracted_13g.csv", "staging_13g", conn)
+    # merge_13g_staging_to_schema("staging_13g", conn)
+    build_holdings_ts(conn)
     conn.commit()
     conn.close()
