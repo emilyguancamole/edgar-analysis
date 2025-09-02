@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ValidationError, ValidationInfo, field_validator
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 
 ''' Validation model for LLM-extracted data.'''

@@ -1,6 +1,5 @@
 import datetime
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from typing import List, Dict, Optional, Type
 import os
 import json
 import time
