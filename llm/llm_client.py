@@ -4,7 +4,7 @@ import os
 import json
 import time
 from pydantic import ValidationError
-from models import FormGEntry
+from data_models import FormGEntry
 
 class LLMClient:
     def __init__(self, model_name, debug=False, debug_log_path="llm_debug.log"):
@@ -116,12 +116,22 @@ class LLMClient:
             except (json.JSONDecodeError, ValidationError, ValueError) as e:
                 print(f"LLM extraction/validation error (attempt {attempt}/{max_retries+1}): {e}")
                 last_exception = e
-                if attempt <= max_retries:
-                    # todo could pass a clarification prompt to the LLM. or have it fix itself
-                    time.sleep(0.5)
-                    continue
-                else:
+                if attempt > max_retries:
                     break
+                # todo if validation error, pass a clarification prompt to the LLM. or have it fix itself
+                # if isinstance(e, ValidationError):
+                #     clarification_prompt = f"The extracted data is missing required fields or has incorrect types. Please provide a valid JSON object with the following fields and types: {entry_model.model_json_schema()}"
+                #     file_text += "\n\n" + clarification_prompt
+                # elif isinstance(e, json.JSONDecodeError):
+                #     # if JSON decode error, ask LLM to return just the JSON object without extra text
+                #     clarification_prompt = "The previous response was not valid JSON. Provide only a valid JSON object with no extra text."
+                #     file_text += "\n\n" + clarification_prompt
+                # todo exponential backoff
+
+                # otherwise, just retry after a short delay
+                time.sleep(0.5)
+                continue
+            
 
         # If reach here, raise last exception for the caller to handle
         raise last_exception

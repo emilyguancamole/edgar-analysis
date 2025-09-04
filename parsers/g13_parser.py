@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 import logging
 
 
-from models import FormGEntry
+from data_models import FormGEntry
 from .base_parser import BaseParser
 from llm.llm_client import LLMClient
 from edgar_client import EdgarClient
