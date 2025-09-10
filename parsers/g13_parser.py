@@ -73,3 +73,50 @@ class Form13GParser(BaseParser):
         return data
     
     
+    def prefilter_13g_sections(self, filing_text):
+        """
+        Prefilter 13G/13G-A text to extract section from html or txt.
+
+        TODO: super simple for now - keeps all text between Form 13G and signature. the tables made the text much longer......
+        """
+
+        if "<html" in filing_text.lower():
+            soup = BeautifulSoup(filing_text, "html.parser") #? lxml
+            main_text = soup.get_text(" ", strip=True)
+            #! Tables giving me issues bc it appends table text onto existing text... if just getting the original text isn't an issue then skip tables.
+            # tables = ["\n" + table.get_text(" ", strip=True) for table in soup.find_all("table")]
+            body_text = main_text
+        else:
+            body_text = filing_text
+        
+        # Regex
+        schedule_match = re.search(r'(Schedule\s+13G[^\n]*)', body_text, re.IGNORECASE)
+        signature_match = re.search(r'(Signature|Certification)', body_text, re.IGNORECASE)
+        if schedule_match and signature_match:
+            block = body_text[schedule_match.start():signature_match.end()]
+        else:
+            block = body_text # fallback
+
+        return block
+        
+
+        #todo something wrong with below or how I'm unit testing it. also worried it'll cut out info -- keeping more text is safer for now
+        # # Find Item sections
+        # item_pattern = re.compile(r'(Item\s+[0-9A-Za-z\.]+[\s\S]*?)(?=(Item\s+[0-9A-Za-z\.]+|Exhibit|Signature|Certification|$))', re.IGNORECASE)
+        # items = item_pattern.findall(block) # find all item sections in the block
+        # kept_sections.extend([item[0] for item in items])
+                
+        # # Get all Exhibit blocks
+        # exhibit_pattern = re.compile(r'(Exhibit[\s\S]*?)(?=(Item\s+[0-9A-Za-z\.]+|Signature|Certification|$))', re.IGNORECASE)
+        # exhibits = exhibit_pattern.findall(block)
+        # kept_sections += exhibits
+
+        # # Keyword-driven lines for older files - slow??
+        # relevant_lines = []
+        # keywords = ["beneficial ownership", "voting power", "dispositive power", "percent of class", "cusip", "issuer", "reporting person"]
+        # for line in block.splitlines():
+        #     print(line)
+        #     if any(kw in line.lower() for kw in keywords):
+        #         relevant_lines.append(line)
+
+        

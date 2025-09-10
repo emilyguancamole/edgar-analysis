@@ -1,7 +1,6 @@
 import datetime
 from llm.base_llm_client import BaseLLMClient
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from typing import List, Dict, Optional, Type
 import os
 import json
 import time
@@ -124,6 +123,20 @@ class HfLLMClient(BaseLLMClient):
                     continue
                 else:
                     break
+                # todo if validation error, pass a clarification prompt to the LLM. or have it fix itself
+                # if isinstance(e, ValidationError):
+                #     clarification_prompt = f"The extracted data is missing required fields or has incorrect types. Please provide a valid JSON object with the following fields and types: {entry_model.model_json_schema()}"
+                #     file_text += "\n\n" + clarification_prompt
+                # elif isinstance(e, json.JSONDecodeError):
+                #     # if JSON decode error, ask LLM to return just the JSON object without extra text
+                #     clarification_prompt = "The previous response was not valid JSON. Provide only a valid JSON object with no extra text."
+                #     file_text += "\n\n" + clarification_prompt
+                # todo exponential backoff
+
+                # otherwise, just retry after a short delay
+                time.sleep(0.5)
+                continue
+            
 
         # If reach here, raise last exception for the caller to handle
         raise last_exception
