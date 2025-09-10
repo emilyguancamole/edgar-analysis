@@ -20,6 +20,8 @@ if __name__ == "__main__":
     parse.add_argument("--form_type", type=str, choices=["13f", "13g", "all"], required=True, help="Form type to extract: 13f, 13g, all")
     parse.add_argument("--limit", type=int, default=5, help="Max number of filings to process per form type")
     parse.add_argument("--config_file", type=str, default="config_hf.json", help="Name of config json file in config folder")
+    parse.add_argument("--debug", action="store_true", help="Enable debug logging for LLM client")
+    # todo clean up what's stored in debug log
     args = parse.parse_args()
     
     user_agent = "My Name myname@gmail.com"
@@ -36,9 +38,10 @@ if __name__ == "__main__":
         f13_parser = Form13FParser(client)
         f13_data: List[dict] = f13_parser.parse_all(accessions_13f, limit=args.limit)
         save_to_csv(f13_data, "data/extracted_13f.csv")
+        
     if args.form_type == "13g" or args.form_type == "all":
         print("Processing 13G filings...")
-        llm_client = get_llm_client(config)
+        llm_client = get_llm_client(config, debug=args.debug)
         g13_parser = Form13GParser(client, llm_client)
         g13_data: List[dict] = g13_parser.parse_all(accessions_13g, limit=args.limit)
         save_to_csv(g13_data, "data/extracted_13g.csv")

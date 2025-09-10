@@ -42,7 +42,6 @@ class OpenAILLMClient(BaseLLMClient):
                     text_format = FormGEntry
                 )
                 llm_response = response.output_parsed.dict()
-                print("Openai LLM Response:", llm_response)
                 return llm_response
 
             except (ValidationError, ValueError) as e:

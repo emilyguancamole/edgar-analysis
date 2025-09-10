@@ -4,12 +4,12 @@ import traceback
 from typing import Dict, List, Optional
 from bs4 import BeautifulSoup
 import logging
-
-
 from models import FormGEntry
 from .base_parser import BaseParser
 from llm.base_llm_client import BaseLLMClient
+from llm.llm_cache import LLMCache
 from edgar_client import EdgarClient
+
 
 class Form13GParser(BaseParser):
     def __init__(self, client: EdgarClient, llm_client: BaseLLMClient):
@@ -27,15 +27,21 @@ class Form13GParser(BaseParser):
         html_content = self.client.fetch_file(acc_stripped, primary_doc_name)
         soup = BeautifulSoup(html_content, "lxml")
         text = soup.get_text(" ", strip=True)
-        
-        try:
-            # LLM extraction and validation using the pydantic model
-            file_data: dict = self.llm.extract_and_validate(text, entry_model=FormGEntry, max_tries=1)
 
-        except Exception as e:
-            print(f"LLM extraction/validation failed for accession {acc_stripped}: {e}")
-            traceback.print_exc() 
-            return {}
+        # See if doc content is cached
+        cache = LLMCache() #?? where to place
+        file_data = cache.get(acc_stripped)
+        if not file_data:
+            try:
+                # LLM extraction and validation using the pydantic model
+                file_data: dict = self.llm.extract_and_validate(text, entry_model=FormGEntry, max_tries=1)
+                cache.set(acc_stripped, file_data) # cache llm output only
+            except Exception as e:
+                print(f"LLM extraction/validation failed for accession {acc_stripped}: {e}")
+                traceback.print_exc() 
+                return {}
+        else:
+            print("Cache found")
 
         # Add accession_number, return as a filing-level dict
         filing = {
@@ -58,11 +64,11 @@ class Form13GParser(BaseParser):
                 entry = self.parse_primary_doc(acc)
                 if entry:
                     data.append(entry)
-                    print(f"[{idx}/{total}] Success — collected {len(data)} filings so far.")
+                    print(f"Success — collected {len(data)} filings.")
                 else:
-                    print(f"[{idx}/{total}] No data extracted for {acc}.")
+                    print(f"No data extracted for {acc}.")
             except Exception as e:
-                print(f"[{idx}/{total}] Error processing {acc}: {e}")
+                print(f"Error processing {acc}: {e}")
 
         return data
     
