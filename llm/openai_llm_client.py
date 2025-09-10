@@ -5,7 +5,7 @@ import traceback
 # from pydantic import BaseModel
 from llm.base_llm_client import BaseLLMClient
 from llm.hf_llm_client import HfLLMClient
-from models import FormGEntry
+from data_models import FormGEntry
 # from jsonschema import ValidationError
 from pydantic import ValidationError
 

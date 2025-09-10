@@ -5,7 +5,7 @@ import os
 import json
 import time
 from pydantic import ValidationError
-from models import FormGEntry
+from data_models import FormGEntry
 
 
 class HfLLMClient(BaseLLMClient):

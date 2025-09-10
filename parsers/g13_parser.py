@@ -1,10 +1,11 @@
 
 import json
+import re
 import traceback
 from typing import Dict, List, Optional
 from bs4 import BeautifulSoup
 import logging
-from models import FormGEntry
+from data_models import FormGEntry
 from .base_parser import BaseParser
 from llm.base_llm_client import BaseLLMClient
 from llm.llm_cache import LLMCache
