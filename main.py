@@ -1,13 +1,14 @@
 from itertools import chain
+import os
 from typing import List
 from edgar_client import EdgarClient
 from parsers.f13_parser import Form13FParser
 from parsers.g13_parser import Form13GParser
-from llm.llm_client import LLMClient
+from llm.base_llm_client import BaseLLMClient
+from llm.helpers import get_llm_client
 from db.savers import save_to_csv
-from config import MODEL_NAME
 import argparse
-import os
+import json
 
 if __name__ == "__main__":
     """
@@ -18,10 +19,12 @@ if __name__ == "__main__":
     parse.add_argument("--cik", type=str, default="CIK0000763212", help="Full CIK with leading zeros, e.g. CIK0000763212")
     parse.add_argument("--form_type", type=str, choices=["13f", "13g", "all"], required=True, help="Form type to extract: 13f, 13g, all")
     parse.add_argument("--limit", type=int, default=5, help="Max number of filings to process per form type")
+    parse.add_argument("--config_file", type=str, default="config_hf.json", help="Name of config json file in config folder")
     args = parse.parse_args()
     
     user_agent = "My Name myname@gmail.com"
-    client = EdgarClient(args.cik, user_agent)
+    config = json.load(open(os.path.join("config", args.config_file)))
+    client = EdgarClient(args.cik, user_agent=user_agent)
     submissions = client.get_submissions_feed()
     
     recent = submissions['filings']['recent']
@@ -35,7 +38,7 @@ if __name__ == "__main__":
         save_to_csv(f13_data, "data/extracted_13f.csv")
     if args.form_type == "13g" or args.form_type == "all":
         print("Processing 13G filings...")
-        llm = LLMClient(MODEL_NAME)
-        g13_parser = Form13GParser(client, llm)
+        llm_client = get_llm_client(config)
+        g13_parser = Form13GParser(client, llm_client)
         g13_data: List[dict] = g13_parser.parse_all(accessions_13g, limit=args.limit)
         save_to_csv(g13_data, "data/extracted_13g.csv")

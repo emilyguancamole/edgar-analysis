@@ -1,4 +1,5 @@
 import datetime
+from llm.base_llm_client import BaseLLMClient
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from typing import List, Dict, Optional, Type
 import os
@@ -7,7 +8,8 @@ import time
 from pydantic import ValidationError
 from models import FormGEntry
 
-class LLMClient:
+
+class HfLLMClient(BaseLLMClient):
     def __init__(self, model_name, debug=False, debug_log_path="llm_debug.log"):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForCausalLM.from_pretrained(
@@ -18,9 +20,8 @@ class LLMClient:
         self.debug = debug
         self.debug_log_path = debug_log_path
 
-    def build_messages(self, filing_text):
+    def build_messages(self, filing_text, system_prompt_file="llm/prompt.txt"):
         # prepare the model input
-        system_prompt_file = f"llm/prompt.txt"
         folder = '.'
         with open(os.path.join(folder, system_prompt_file), "r") as f:
             system_prompt = f.read().strip()
@@ -73,8 +74,8 @@ class LLMClient:
                 pass
         return llm_response
 
-    def extract_and_validate(self, file_text, entry_model: FormGEntry, max_retries = 1) -> dict:
-        """Call the LLM to extract JSON from the given file_text, parse it, and validate with the given pydantic model.
+    def extract_and_validate(self, file_text, entry_model: FormGEntry, max_tries = 1) -> dict:
+        """Call the LLM via extract_data_llm to extract JSON from the given file_text, parse it, and validate with the given pydantic model.
 
         max_retries: # retries on decode or validation errors.
 
@@ -82,7 +83,7 @@ class LLMClient:
         """
         attempt = 0
         last_exception = None # store the last exception if all retries fail
-        while attempt <= max_retries:
+        while attempt <= max_tries:
             attempt += 1
             try:
                 data = self.extract_data_llm(file_text) # get extraction for one file
@@ -115,11 +116,11 @@ class LLMClient:
                 return validated.dict()
 
             except (json.JSONDecodeError, ValidationError, ValueError) as e:
-                print(f"LLM extraction/validation error (attempt {attempt}/{max_retries+1}): {e}")
+                print(f"LLM extraction/validation error (attempt {attempt}/{max_tries+1}): {e}")
                 last_exception = e
-                if attempt <= max_retries:
+                if attempt <= max_tries:
                     # todo could pass a clarification prompt to the LLM. or have it fix itself
-                    time.sleep(0.5)
+                    time.sleep(1)
                     continue
                 else:
                     break
@@ -128,44 +129,4 @@ class LLMClient:
         raise last_exception
 
 
-    ### Helper functions for parsing/cleaning values ###
-    def _parse_int(self, value):
-        if value is None:
-            return None
-        if isinstance(value, int):
-            return value
-        s = str(value).strip()
-        if s == "":
-            return None
-        s = s.replace(",", "")
-        try:
-            # force floats to int
-            return int(float(s))
-        except Exception as e:
-            raise ValueError(f"cannot parse int from {value}: {e}")
-        
-    def _parse_percent(self, value):
-        if value is None:
-            return None
-        if isinstance(value, (int, float)):
-            return float(value)
-        s = str(value).strip()
-        if s == "":
-            return None
-        s = s.replace(",", "")
-        # if contains percent sign, remove it
-        if s.endswith("%"):
-            s = s[:-1].strip()
-        try:
-            return float(s)
-        except Exception as e:
-            raise ValueError(f"cannot parse percent from {value}: {e}")
-
-    def _coerce_types(self, data: dict) -> dict:
-        out = dict(data) # shallow copy to avoid mutating input
-        for k in ("shares_owned", "shares_dispo_sole", "shares_dispo_shared"): # fields to coerce to int
-            if k in out:
-                out[k] = self._parse_int(out[k])
-        if "percent_of_class" in out:
-            out["percent_of_class"] = self._parse_percent(out["percent_of_class"])
-        return out
+    

@@ -1,4 +1,6 @@
 
+import json
+import traceback
 from typing import Dict, List, Optional
 from bs4 import BeautifulSoup
 import logging
@@ -6,13 +8,13 @@ import logging
 
 from models import FormGEntry
 from .base_parser import BaseParser
-from llm.llm_client import LLMClient
+from llm.base_llm_client import BaseLLMClient
 from edgar_client import EdgarClient
 
 class Form13GParser(BaseParser):
-    def __init__(self, client: EdgarClient, llm: LLMClient):
+    def __init__(self, client: EdgarClient, llm_client: BaseLLMClient):
         self.client = client
-        self.llm = llm
+        self.llm = llm_client
         self.logger = logging.getLogger(__name__)
 
     def parse_primary_doc(self, acc_stripped: str) -> dict:
@@ -28,10 +30,11 @@ class Form13GParser(BaseParser):
         
         try:
             # LLM extraction and validation using the pydantic model
-            file_data: dict = self.llm.extract_and_validate(text, entry_model=FormGEntry, max_retries=1)
+            file_data: dict = self.llm.extract_and_validate(text, entry_model=FormGEntry, max_tries=1)
 
         except Exception as e:
             print(f"LLM extraction/validation failed for accession {acc_stripped}: {e}")
+            traceback.print_exc() 
             return {}
 
         # Add accession_number, return as a filing-level dict
