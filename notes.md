@@ -4,7 +4,7 @@ forms: 13F-HR, SC 13G/A
 - Schedule 13D?: beneficial ownership exceeding 5% of a company’s voting shares
 
 SEC has JSON feeds for EDGAR. 
-Submissions feed: https://data.sec.gov/submissions/CIK0000763212.json
+Submissions feed for PRIMECAP: https://data.sec.gov/submissions/CIK0000763212.json
 
 Each filing has a unique accession number.
 

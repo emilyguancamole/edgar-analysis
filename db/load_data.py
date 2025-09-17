@@ -1,5 +1,5 @@
 import pandas as pd
-from connect_db import get_conn
+from .connect_db import get_conn
 
 def _show_db_info(conn, cur):
     cur.execute("SELECT current_database(), current_user, current_schema();")
@@ -20,81 +20,6 @@ def load_funds(conn):
                 ('PRIMECAP Management CO/CA', 'CIK0000763212')
             ON CONFLICT (cik) DO NOTHING;
         """)
-        
-def load_13f_csv_to_staging(csv_path, staging_table, conn):
-    with conn.cursor() as cur:
-        # _show_db_info(conn, cur)
-        try:
-            # Drop/create staging for each run
-            cur.execute(f"DROP TABLE IF EXISTS {staging_table};")
-            cur.execute(f"""
-                CREATE TABLE {staging_table} (
-                    accession_number TEXT,
-                    report_date DATE,
-                    cik TEXT,
-                    issuer TEXT,
-                    class TEXT,
-                    cusip TEXT,
-                    figi TEXT,
-                    value_dollar NUMERIC,
-                    shares_owned BIGINT,
-                    share_type TEXT,
-                    discretion TEXT,
-                    voting_sole BIGINT,
-                    voting_shared BIGINT,
-                    voting_none BIGINT,
-                    primary_doc_url TEXT
-                )""")
-        
-            # COPY raw CSV into staging
-            with open(csv_path, "r", encoding="utf-8") as f:
-                # COPY FROM copies data from a file to a table (appending)
-                with cur.copy(f"COPY {staging_table} FROM STDIN WITH CSV HEADER") as copy:
-                    copy.write(f.read())
-        except Exception as e:
-            print("Error during COPY for 13F:", e)
-            raise
-
-        conn.commit()
-        print(f"Loaded {csv_path} into {staging_table}, rows={_count(cur, staging_table)}")
-
-
-
-def load_13g_csv_to_staging(csv_path, staging_table, conn):
-    """Load 13G CSV data into a staging table."""
-    with conn.cursor() as cur:
-        try:
-            # drop/create staging for each run
-            cur.execute(f"DROP TABLE IF EXISTS {staging_table};")
-            cur.execute(f"""
-                CREATE TABLE {staging_table} (
-                    accession_number TEXT,
-                    cik TEXT,
-                    primary_doc TEXT,
-                    name_filer TEXT,
-                    report_date DATE,
-                    issuer TEXT,
-                    cusip TEXT,
-                    shares_owned BIGINT,
-                    percent_of_class NUMERIC,
-                    voting_sole BIGINT,
-                    voting_shared BIGINT,
-                    shares_dispo_sole BIGINT,
-                    shares_dispo_shared BIGINT
-                )""")
-        
-            # COPY raw CSV into staging
-            with open(csv_path, "r", encoding="utf-8") as f:
-                # COPY FROM copies data from a file to a table (appending)
-                with cur.copy(f"COPY {staging_table} FROM STDIN WITH CSV HEADER") as copy:
-                    copy.write(f.read())
-
-            conn.commit()
-            print(f"Loaded {csv_path} into {staging_table}, rows={_count(cur, staging_table)}")
-
-        except Exception as e:
-            print("Error during COPY for 13G:", e)
-            raise
 
 
 def merge_13f_staging_to_schema(staging_table, conn):
@@ -155,7 +80,6 @@ def merge_13g_staging_to_schema(staging_table, conn):
         """)
         conn.commit()
         print("issuers rows:", _count(cur, "issuers"))
-
 
         # Insert filings with fund_id fk
         cur.execute(f"""

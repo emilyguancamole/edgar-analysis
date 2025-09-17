@@ -1,4 +1,4 @@
-from time import time
+import time
 from openai import AzureOpenAI
 import logging
 import traceback

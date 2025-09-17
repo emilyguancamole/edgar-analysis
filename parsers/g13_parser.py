@@ -31,7 +31,7 @@ class Form13GParser(BaseParser):
 
         # See if doc content is cached
         cache = LLMCache() #?? where to place
-        file_data = cache.get(acc_stripped)
+        file_data = cache.get(acc_stripped) #? faster to check cache in parse_all??
         if not file_data:
             try:
                 # LLM extraction and validation using the pydantic model

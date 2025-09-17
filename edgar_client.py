@@ -1,3 +1,5 @@
+import random
+import time
 from bs4 import BeautifulSoup
 import requests
 import json
@@ -16,20 +18,43 @@ class EdgarClient:
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": user_agent})
 
+    # TODO add exponential backoff
+
+    def fetch_json_with_retry(self, url, max_attempts=5) -> Dict:
+        """ no caching -- that is handled in parsers """
+        for attempt in range(1, max_attempts+1):
+            try:
+                r = self.session.get(url)
+            except requests.RequestException as e: # network failure
+                time.sleep(min(60, (2 ** attempt) + random.random()))
+                if attempt == max_attempts:
+                    raise e
+                continue
+            
+            if r.status_code == 200:
+                # print("fetched json successfully")
+                return r.json()
+            
+            if r.status_code==429 or r.status_code>=500: # rate limiting, or server error
+                print(f"backoff for {url}")
+                time.sleep(min(60, (2 ** attempt) + random.random()))
+                if attempt == max_attempts:
+                    r.raise_for_status()
+                continue
+            # other error -> fail immediately
+            r.raise_for_status()
+        
+        raise RuntimeError(f"Exceeded max attempts fetching {url}")
 
     def get_submissions_feed(self) -> Dict:
         """Get the overall EDGAR submissions json feed"""
-        r = self.session.get(self.submissions_url)
-        r.raise_for_status()
-        return r.json()
+        return self.fetch_json_with_retry(self.submissions_url)
 
     def get_index_json(self, acc: str) -> Dict:
         """Get index.json for one accession number"""
-        r = self.session.get(f"{self.filing_baseurl}/{acc}/index.json")
-        r.raise_for_status()
-        return r.json()
+        return self.fetch_json_with_retry(f"{self.filing_baseurl}/{acc}/index.json")
 
-    def get_primary_doc_name_date(self, acc: str) -> str:
+    def get_primary_doc_name_date(self, acc: str) -> Tuple[str, str]:
         """Get primary doc file name and last modified date. Usually "infotable" for 13f, variable for 13g"""
         items = self.get_index_json(acc)['directory']['item']
         candidates = [f for f in items if f["name"].endswith((".htm", ".html"))] # prefer htm
