@@ -1,0 +1,145 @@
+import datetime
+from llm.base_llm_client import BaseLLMClient
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import os
+import json
+import time
+from pydantic import ValidationError
+from data_models import FormGEntry
+
+
+class HfLLMClient(BaseLLMClient):
+    def __init__(self, model_name, debug=False, debug_log_path="llm_debug.log"):
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            torch_dtype="auto",
+            device_map="auto"
+        )
+        self.debug = debug
+        self.debug_log_path = debug_log_path
+
+    def build_messages(self, filing_text, system_prompt_file="llm/prompt.txt"):
+        # prepare the model input
+        folder = '.'
+        with open(os.path.join(folder, system_prompt_file), "r") as f:
+            system_prompt = f.read().strip()
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": filing_text}
+        ]
+        return messages
+    
+    def extract_data_llm(self, file_text) -> str:
+        messages = self.build_messages(file_text)
+        text = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=True # Switches between thinking and non-thinking modes. Default is True.
+        )
+        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.model.device)
+        print("\nGenerating...\n")
+        # conduct text completion
+        generated_ids = self.model.generate(
+            **model_inputs,
+            max_new_tokens=32768 # recommended output len for most queries
+        )
+        output_ids = generated_ids[0][len(model_inputs.input_ids[0]):].tolist() 
+
+        # parsing thinking content
+        try:
+            # rindex finding 151668 (</think>)
+            index = len(output_ids) - output_ids[::-1].index(151668)
+        except ValueError:
+            index = 0
+
+        thinking_content = self.tokenizer.decode(output_ids[:index], skip_special_tokens=True).strip("\n")
+        llm_response = self.tokenizer.decode(output_ids[index:], skip_special_tokens=True).strip("\n")
+        if self.debug:
+            try:
+                with open(self.debug_log_path, "a", encoding="utf-8") as fh:
+                    fh.write(f"=== {datetime.utcnow().isoformat()} UTC ===\n")
+                    fh.write("PROMPT (tokenized input):\n")
+                    fh.write(text + "\n\n")
+                    fh.write("THINKING_CONTENT:\n")
+                    fh.write(thinking_content + "\n\n")
+                    fh.write("LLM_RAW_RESPONSE:\n")
+                    fh.write(llm_response + "\n\n")
+                    fh.write("---\n\n")
+            except Exception:
+                # keep behavior non-failing if logging fails
+                pass
+        return llm_response
+
+    def extract_and_validate(self, file_text, entry_model: FormGEntry, max_tries = 1) -> dict:
+        """Call the LLM via extract_data_llm to extract JSON from the given file_text, parse it, and validate with the given pydantic model.
+
+        max_retries: # retries on decode or validation errors.
+
+        Returns
+        """
+        attempt = 0
+        last_exception = None # store the last exception if all retries fail
+        while attempt <= max_tries:
+            attempt += 1
+            try:
+                data = self.extract_data_llm(file_text) # get extraction for one file
+                data_json = json.loads(data)
+                # If model returned a JSON string (double-encoded), try decode again
+                if isinstance(data_json, str):
+                    try:
+                        data_json = json.loads(data_json)
+                    except json.JSONDecodeError:
+                        pass # leave as string, handled below
+                print("Parsed JSON:", data_json)
+                
+                try:
+                    data_json = self._coerce_types(data_json) # coerce types for some number-looking fields
+                except ValueError as e: # treat as validation errors for max_retries
+                    raise ValueError(f"type coercion error: {e}")
+                
+                validated = entry_model(**data_json) # validate filing data with pydantic mode. returns a model instance
+                if self.debug:
+                    try:
+                        with open(self.debug_log_path, "a", encoding="utf-8") as fh:
+                            fh.write(f"=== {datetime.utcnow().isoformat()} UTC VALIDATION ===\n")
+                            fh.write("PARSED_JSON:\n")
+                            fh.write(json.dumps(data_json, ensure_ascii=False, indent=2) + "\n\n")
+                            fh.write("VALIDATED ENTRIES:\n")
+                            fh.write(validated.json(ensure_ascii=False, indent=2) + "\n\n")
+                            fh.write("=== END ===\n\n")
+                    except Exception:
+                        pass
+                return validated.dict()
+
+            except (json.JSONDecodeError, ValidationError, ValueError) as e:
+                print(f"LLM extraction/validation error (attempt {attempt}/{max_tries+1}): {e}")
+                last_exception = e
+                if attempt <= max_tries:
+                    # todo could pass a clarification prompt to the LLM. or have it fix itself
+                    time.sleep(1)
+                    continue
+                else:
+                    break
+                # todo if validation error, pass a clarification prompt to the LLM. or have it fix itself
+                # if isinstance(e, ValidationError):
+                #     clarification_prompt = f"The extracted data is missing required fields or has incorrect types. Please provide a valid JSON object with the following fields and types: {entry_model.model_json_schema()}"
+                #     file_text += "\n\n" + clarification_prompt
+                # elif isinstance(e, json.JSONDecodeError):
+                #     # if JSON decode error, ask LLM to return just the JSON object without extra text
+                #     clarification_prompt = "The previous response was not valid JSON. Provide only a valid JSON object with no extra text."
+                #     file_text += "\n\n" + clarification_prompt
+                # todo exponential backoff
+
+                # otherwise, just retry after a short delay
+                time.sleep(0.5)
+                continue
+            
+
+        # If reach here, raise last exception for the caller to handle
+        raise last_exception
+
+
+    
