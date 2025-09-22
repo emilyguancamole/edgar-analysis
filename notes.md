@@ -1,4 +1,4 @@
-CIK 0000763212
+CIK0000763212
 forms: 13F-HR, SC 13G/A
 - Form 13F: quarterly equity holdings of institutional investment managers with $100M+
 - Schedule 13D?: beneficial ownership exceeding 5% of a company’s voting shares
@@ -25,3 +25,11 @@ filings.
 - 0001085146-24-005545-index.html → Filing documents index page (the one you see in browser)
 - 0001085146-24-005545.txt → The raw complete filing text 
 - nxt_111124.htm → The actual filing documen
+
+
+
+HOW TO RUN - for me
+`cd backend`
+- Create `funds` and `holdings_ts`: python db/load_data.py
+- Extract data: python main.py --form_type 13f --dest both
+- Run backend api only: uvicorn app:app --reload

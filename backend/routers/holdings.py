@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlmodel import select, Session
-from sqlalchemy import func
+from sqlalchemy import func, desc, asc
 from typing import Optional
 from datetime import date as date_cls
 
@@ -24,9 +24,11 @@ def read_root():
 @router.get("/shares")
 def get_shares(
     cik: str,
-    date: Optional[str]=None,
-    page: int=1,
-    limit: int=200,
+    date: Optional[str] = None,
+    page: int = 1,
+    limit: int = 200,
+    sort_field: Optional[str] = Query(None, description="Field to sort by, e.g. shares_owned"),
+    sort_order: Optional[str] = Query("desc", description="asc or desc"),
     session: Session = Depends(get_session),
 ):
     """
@@ -61,14 +63,34 @@ def get_shares(
             raise HTTPException(status_code=404, detail=f"No holdings_ts found for CIK {cik}")
         target_date = latest_row
 
-    # fetch rows for target date joined to securities metadata
+    # compute total count for pagination
+    stmt_count = select(func.count()).where(HoldingsTS.fund_id == cik, HoldingsTS.date == target_date)
+    total = session.exec(stmt_count).one()
+
+    # build base select
     stmt = (
         select(HoldingsTS, Security)
         .join(Security, HoldingsTS.issuer_id == Security.issuer_id)
         .where(HoldingsTS.fund_id == cik, HoldingsTS.date == target_date)
-        .limit(limit)
-        .offset(max(0, (page - 1)) * limit)
     )
+
+    # optional sorting
+    if sort_field:
+        sort_col = None
+        if sort_field == "shares_owned":
+            sort_col = HoldingsTS.shares_owned
+        elif sort_field == "shares_change":
+            sort_col = HoldingsTS.shares_change
+        elif sort_field == "shares_change_pct":
+            sort_col = HoldingsTS.shares_change_pct
+        elif sort_field == "issuer_name":
+            sort_col = Security.issuer_name
+
+        if sort_col is not None:
+            stmt = stmt.order_by(asc(sort_col) if sort_order == "asc" else desc(sort_col))
+
+    # pagination
+    stmt = stmt.limit(limit).offset(max(0, (page - 1)) * limit)
     pairs = session.exec(stmt).all()  # list of (HoldingsTS for the date, Security) tuples
 
     # Collect data to output rows
@@ -83,7 +105,9 @@ def get_shares(
             except Exception:
                 shares_change_pct = None
 
+        uid = f"{cik}|{holding.issuer_id}|{target_date.isoformat()}"
         out_rows.append({
+            "id": uid,
             "date": target_date.isoformat(),
             "issuer_id": holding.issuer_id,
             "issuer_name": sec.issuer_name,
@@ -98,7 +122,8 @@ def get_shares(
         "date": target_date.isoformat(),
         "page": page,
         "limit": limit,
-        "holdings_rows": out_rows, # list of dicts, each dict is 1 holding at the date
+        "total": total,
+        "rows": out_rows, # list of dicts, each dict is 1 holding at the date
     }
 
 
